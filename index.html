@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>دليل عمارات امتداد رمسيس 2</title>
+    <!-- استدعاء ملف البيانات تلقائياً -->
+    <script src="data.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+        body { background-color: #f4f6f8; color: #1c1e21; display: flex; justify-content: center; min-height: 100vh; padding: 20px 15px; }
+        .app-container { width: 100%; max-width: 420px; background: #ffffff; border-radius: 16px; padding: 24px 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); height: fit-content; }
+        header { text-align: center; margin-bottom: 20px; }
+        header h1 { font-size: 1.4rem; color: #0d1117; margin-bottom: 6px; }
+        header p { font-size: 0.9rem; color: #57606a; }
+        
+        .search-box { position: relative; margin-bottom: 20px; }
+        .search-input { width: 100%; padding: 14px 16px; font-size: 1.1rem; border: 2px solid #e1e4e8; border-radius: 12px; outline: none; transition: border-color 0.2s; text-align: center; }
+        .search-input:focus { border-color: #f7652e; }
+
+        .result-card { display: none; background: #fff8f5; border: 1.5px solid #ffe3d6; border-radius: 12px; padding: 20px; text-align: center; margin-top: 15px; }
+        .result-title { font-size: 1.2rem; font-weight: bold; color: #52291a; margin-bottom: 8px; }
+        .result-subtitle { font-size: 0.85rem; color: #80432c; margin-bottom: 16px; }
+        
+        .actions-group { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; font-size: 1rem; font-weight: bold; padding: 14px; border-radius: 10px; text-decoration: none; border: none; cursor: pointer; transition: background 0.2s; }
+        .btn-navigate { background-color: #f7652e; color: #ffffff; }
+        .btn-navigate:hover { background-color: #e0531c; }
+        .btn-whatsapp { background-color: #25D366; color: #ffffff; }
+        .btn-whatsapp:hover { background-color: #1da851; }
+
+        .not-found { display: none; text-align: center; color: #cf222e; font-size: 0.95rem; margin-top: 15px; padding: 10px; background: #ffebe9; border-radius: 8px; }
+        .loading { text-align: center; color: #57606a; font-size: 0.9rem; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header>
+        <h1>📍 امتداد رمسيس 2</h1>
+        <p>اكتب رقم العمارة للوصول المباشر عبر Google Maps</p>
+    </header>
+
+    <div id="loadingState" class="loading">جاري تحميل داتا العمارات...</div>
+
+    <div class="search-box">
+        <input type="number" id="searchInput" class="search-input" placeholder="ادخل رقم العمارة (مثلاً: 142)" disabled>
+    </div>
+
+    <div id="resultCard" class="result-card">
+        <div class="result-title" id="cardTitle">عمارة رقم --</div>
+        <div class="result-subtitle">امتداد رمسيس 2 - مدينة نصر</div>
+        
+        <div class="actions-group">
+            <a id="navLink" href="#" target="_blank" class="btn btn-navigate">
+                🧭 افتح الاتجاهات في Google Maps
+            </a>
+            <a id="waLink" href="#" target="_blank" class="btn btn-whatsapp">
+                💬 مشاركة المكون على WhatsApp
+            </a>
+        </div>
+    </div>
+
+    <div id="notFound" class="not-found">
+        عفواً، رقم العمارة غير موجود في النطاق المحدد.
+    </div>
+</div>
+
+<script>
+    let buildingsMap = new Map();
+
+    function initData() {
+        if (typeof rawGeoJson !== 'undefined') {
+            const data = rawGeoJson;
+            if (data && data.features) {
+                data.features.forEach(item => {
+                    const props = item.properties || {};
+                    const houseNum = props['addr:housenumber'] || props['housenumber'];
+                    if (houseNum && item.geometry && item.geometry.coordinates) {
+                        const [lon, lat] = item.geometry.coordinates;
+                        buildingsMap.set(String(houseNum).trim(), { lat, lon });
+                    }
+                });
+            } else if (data && data.elements) {
+                data.elements.forEach(item => {
+                    const houseNum = item.tags && item.tags['addr:housenumber'];
+                    const lat = item.lat || (item.center && item.center.lat);
+                    const lon = item.lon || (item.center && item.center.lon);
+                    if (houseNum && lat && lon) {
+                        buildingsMap.set(String(houseNum).trim(), { lat, lon });
+                    }
+                });
+            }
+        }
+
+        if (buildingsMap.size > 0) {
+            document.getElementById('loadingState').style.display = 'none';
+            const input = document.getElementById('searchInput');
+            input.disabled = false;
+            input.focus();
+        } else {
+            document.getElementById('loadingState').innerText = 'حدث خطأ أثناء تحميل داتا العمارات.';
+        }
+    }
+
+    // تشغيل عند فتح الصفحة مباشرة
+    window.onload = initData;
+
+    // البحث مع الكتابة
+    document.getElementById('searchInput').addEventListener('input', function(e) {
+        const query = e.target.value.trim();
+        const resultCard = document.getElementById('resultCard');
+        const notFound = document.getElementById('notFound');
+        const cardTitle = document.getElementById('cardTitle');
+        const navLink = document.getElementById('navLink');
+        const waLink = document.getElementById('waLink');
+
+        if (!query) {
+            resultCard.style.display = 'none';
+            notFound.style.display = 'none';
+            return;
+        }
+
+        if (buildingsMap.has(query)) {
+            const coords = buildingsMap.get(query);
+            cardTitle.innerText = `عمارة رقم ${query}`;
+            
+            const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${coords.lat},${coords.lon}`;
+            navLink.href = mapsUrl;
+
+            // رابط الواتساب الجاهز بالمشاركة
+            const waText = encodeURIComponent(`موقع عمارة رقم ${query} (امتداد رمسيس 2):\n${mapsUrl}`);
+            waLink.href = `https://wa.me/?text=${waText}`;
+
+            resultCard.style.display = 'block';
+            notFound.style.display = 'none';
+        } else {
+            resultCard.style.display = 'none';
+            notFound.style.display = 'block';
+        }
+    });
+</script>
+
+</body>
+</html>
